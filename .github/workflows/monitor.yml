@@ -1,0 +1,32 @@
+name: Monitor Production
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: ${{ secrets.MONITOR_BASE_URL }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      MONITOR_MAX_RESPONSE_MS: ${{ secrets.MONITOR_MAX_RESPONSE_MS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Skip if MONITOR_BASE_URL is missing
+        if: ${{ env.BASE_URL == '' }}
+        run: echo "MONITOR_BASE_URL is not set. Skipping." && exit 0
+
+      - name: Run monitor check
+        run: node scripts/monitor-check.mjs

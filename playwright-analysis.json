@@ -1,0 +1,68 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "analyzedAt": "2026-02-25T12:57:21.864Z",
+  "maxPages": 8,
+  "pagesAnalyzed": 5,
+  "pages": [
+    {
+      "url": "http://localhost:3000/",
+      "ok": true,
+      "status": 200,
+      "title": "prime performance | Премиальные офисные кресла",
+      "startedAt": "2026-02-25T12:57:18.584Z",
+      "finishedAt": "2026-02-25T12:57:19.592Z",
+      "consoleMessages": [],
+      "pageErrors": [],
+      "requestFailures": [],
+      "badResponses": []
+    },
+    {
+      "url": "http://localhost:3000/office-chair-bmw",
+      "ok": true,
+      "status": 200,
+      "title": "Офисное кресло BMW | prime performance",
+      "startedAt": "2026-02-25T12:57:19.595Z",
+      "finishedAt": "2026-02-25T12:57:20.148Z",
+      "consoleMessages": [],
+      "pageErrors": [],
+      "requestFailures": [],
+      "badResponses": []
+    },
+    {
+      "url": "http://localhost:3000/bmw-m5-f90",
+      "ok": true,
+      "status": 200,
+      "title": "Офисное кресло BMW M5 F90 | prime performance",
+      "startedAt": "2026-02-25T12:57:20.151Z",
+      "finishedAt": "2026-02-25T12:57:20.697Z",
+      "consoleMessages": [],
+      "pageErrors": [],
+      "requestFailures": [],
+      "badResponses": []
+    },
+    {
+      "url": "http://localhost:3000/office-chairs-business-class",
+      "ok": true,
+      "status": 200,
+      "title": "Офисные кресла бизнес‑класса | prime performance",
+      "startedAt": "2026-02-25T12:57:20.701Z",
+      "finishedAt": "2026-02-25T12:57:21.254Z",
+      "consoleMessages": [],
+      "pageErrors": [],
+      "requestFailures": [],
+      "badResponses": []
+    },
+    {
+      "url": "http://localhost:3000/privacy",
+      "ok": true,
+      "status": 200,
+      "title": "Политика обработки персональных данных | prime performance",
+      "startedAt": "2026-02-25T12:57:21.258Z",
+      "finishedAt": "2026-02-25T12:57:21.810Z",
+      "consoleMessages": [],
+      "pageErrors": [],
+      "requestFailures": [],
+      "badResponses": []
+    }
+  ]
+}

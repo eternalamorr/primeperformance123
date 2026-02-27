@@ -1,0 +1,77 @@
+name: Predeploy Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+      ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      E2E_BYPASS_TURNSTILE: "1"
+      E2E_FAKE_ORDER: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+      - name: Validate media paths (if Supabase secrets provided)
+        if: ${{ env.SUPABASE_URL != '' && env.SUPABASE_ANON_KEY != '' }}
+        run: pnpm validate:media
+
+      - name: Start app
+        run: |
+          nohup PORT=3000 pnpm dev > /tmp/next-dev.log 2>&1 &
+          for i in {1..40}; do
+            if curl -fsS http://localhost:3000 >/dev/null; then
+              echo "App is up" && break
+            fi
+            sleep 2
+          done
+          curl -fsS http://localhost:3000 >/dev/null
+
+      - name: Smoke check
+        env:
+          BASE_URL: http://localhost:3000
+        run: pnpm smoke
+
+      - name: E2E order flow
+        env:
+          BASE_URL: http://localhost:3000
+        run: pnpm e2e:order
+
+      - name: Upload app logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-dev-log
+          path: /tmp/next-dev.log

@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+dist/
+.env
+.env.local
+.env.production
+*.log
+*.tsbuildinfo
+.DS_Store
+
+.next_broken_*
+
+# local heavy artifacts
+backups/
+artifacts/media-backups/
+video/vidos2.mp4

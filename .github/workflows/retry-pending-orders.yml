@@ -1,0 +1,40 @@
+name: Retry Pending Orders
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PENDING_ORDERS_BATCH_SIZE: ${{ secrets.PENDING_ORDERS_BATCH_SIZE }}
+      PENDING_ORDERS_MAX_DELAY_SECONDS: ${{ secrets.PENDING_ORDERS_MAX_DELAY_SECONDS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Skip if Supabase secrets are missing
+        if: ${{ env.SUPABASE_URL == '' || env.SUPABASE_SERVICE_ROLE_KEY == '' }}
+        run: echo "Supabase secrets are not set. Skipping." && exit 0
+
+      - name: Retry pending orders
+        run: pnpm orders:retry-pending

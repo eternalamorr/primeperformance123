@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-guard";
 import { enforceSameOrigin, getClientIp } from "@/lib/request-helpers";
 import { rateLimit } from "@/lib/rate-limit";
@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PUT(request: Request, context: RouteContext) {
+  const supabaseAdmin = getSupabaseAdmin();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
@@ -53,6 +54,7 @@ export async function PUT(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
+  const supabaseAdmin = getSupabaseAdmin();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 

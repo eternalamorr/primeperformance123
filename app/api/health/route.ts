@@ -1,8 +1,8 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { supabasePublic } from "@/lib/supabase-public";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabasePublic } from "@/lib/supabase-public";
 
 export const runtime = "nodejs";
 
@@ -10,6 +10,8 @@ const MODEL_PATH = join(process.cwd(), "models", "766e7299c962b7daa4070f9bfa59fb
 
 export async function GET() {
   const startedAt = Date.now();
+  let supabasePublic;
+  let supabaseAdmin;
 
   const checks: Record<string, { ok: boolean; details?: string }> = {
     api: { ok: true },
@@ -24,6 +26,7 @@ export async function GET() {
   }
 
   try {
+    supabasePublic = getSupabasePublic();
     const { error } = await supabasePublic.from("products").select("id", { count: "exact", head: true });
     if (error) {
       checks.db = { ok: false, details: error.message };
@@ -42,6 +45,7 @@ export async function GET() {
   }
 
   try {
+    supabaseAdmin = getSupabaseAdmin();
     const { count, error } = await supabaseAdmin
       .from("pending_orders")
       .select("id", { count: "exact", head: true })

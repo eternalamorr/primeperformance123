@@ -1,9 +1,10 @@
 import "server-only";
 
-import { supabasePublic } from "@/lib/supabase-public";
+import { getSupabasePublic } from "@/lib/supabase-public";
 import { mapProductRow, mapProductRows, type ProductRow } from "@/lib/product-row";
 
 export async function getProductsFromDb() {
+  const supabasePublic = getSupabasePublic();
   const { data, error } = await supabasePublic
     .from("products")
     .select("*")
@@ -17,6 +18,7 @@ export async function getProductsFromDb() {
 }
 
 export async function getProductIdsFromDb() {
+  const supabasePublic = getSupabasePublic();
   const { data, error } = await supabasePublic
     .from("products")
     .select("id")
@@ -30,6 +32,7 @@ export async function getProductIdsFromDb() {
 }
 
 export async function getProductByIdFromDb(id: number) {
+  const supabasePublic = getSupabasePublic();
   const { data, error } = await supabasePublic
     .from("products")
     .select("*")

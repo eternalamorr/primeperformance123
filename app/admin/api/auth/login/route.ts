@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createSession, safeEqual, sessionCookieName, verifyAdminPassword } from "@/lib/admin-auth";
 import { enforceSameOrigin, getClientIp } from "@/lib/request-helpers";
 import { rateLimit } from "@/lib/rate-limit";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
 
@@ -13,7 +13,14 @@ const LoginSchema = z.object({
   password: z.string().min(1).max(300),
 });
 
+type AdminUserRow = {
+  username: string;
+  password_hash: string;
+  is_active: boolean;
+};
+
 export async function POST(request: Request) {
+  const supabaseAdmin = getSupabaseAdmin();
   const originCheck = enforceSameOrigin(request);
   if (originCheck) return originCheck;
 
@@ -39,11 +46,12 @@ export async function POST(request: Request) {
   const password = parsed.data.password;
   const isProd = process.env.NODE_ENV === "production";
 
-  const { data: dbAdmin, error: dbError } = await supabaseAdmin
+  const { data: dbAdminRaw, error: dbError } = await supabaseAdmin
     .from("admin_users")
     .select("username,password_hash,is_active")
     .eq("username", username)
     .maybeSingle();
+  const dbAdmin = (dbAdminRaw ?? null) as AdminUserRow | null;
 
   if (dbError && dbError.code !== "42P01") {
     console.error("Failed to query admin_users:", dbError);

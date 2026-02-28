@@ -4,8 +4,8 @@ import { z } from "zod";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { sendSmtpMessage } from "@/lib/smtp";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { supabasePublic } from "@/lib/supabase-public";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabasePublic } from "@/lib/supabase-public";
 import { enforceSameOrigin, getClientIp } from "@/lib/request-helpers";
 
 export const runtime = "nodejs";
@@ -130,6 +130,8 @@ const buildOrderLines = ({
 };
 
 export async function POST(request: Request) {
+  const supabaseAdmin = getSupabaseAdmin();
+  const supabasePublic = getSupabasePublic();
   const originCheck = enforceSameOrigin(request);
   if (originCheck) return originCheck;
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-guard";
 import { enforceSameOrigin, getClientIp } from "@/lib/request-helpers";
 import { rateLimit } from "@/lib/rate-limit";
@@ -9,6 +9,7 @@ import { ProductSchema } from "@/lib/validators";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const supabaseAdmin = getSupabaseAdmin();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
@@ -25,6 +26,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const supabaseAdmin = getSupabaseAdmin();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 

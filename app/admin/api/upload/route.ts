@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-guard";
 import { enforceSameOrigin, getClientIp } from "@/lib/request-helpers";
 import { rateLimit } from "@/lib/rate-limit";
@@ -72,6 +72,7 @@ const extensionByType: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
+  const supabaseAdmin = getSupabaseAdmin();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 

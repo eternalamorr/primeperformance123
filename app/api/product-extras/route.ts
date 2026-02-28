@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { supabasePublic } from "@/lib/supabase-public";
+import { getSupabasePublic } from "@/lib/supabase-public";
 
 export const runtime = "nodejs";
 
 export async function GET() {
+  const supabasePublic = getSupabasePublic();
   const { data, error } = await supabasePublic
     .from("product_extras")
     .select("id,label,price")

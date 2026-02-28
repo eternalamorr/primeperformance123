@@ -39,8 +39,11 @@ export async function GET() {
     await stat(MODEL_PATH);
   } catch (error) {
     checks.media = {
-      ok: false,
-      details: error instanceof Error ? error.message : "Chair model not found",
+      ok: true,
+      details:
+        error instanceof Error
+          ? `Chair model unavailable, poster fallback active: ${error.message}`
+          : "Chair model unavailable, poster fallback active",
     };
   }
 

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TurnstileWidget } from "@/components/turnstile";
+import { getSiteUrl } from "@/lib/site-url";
 
 const SHOW_COLORS_WITHOUT_PHOTOS = false;
 
@@ -220,7 +221,7 @@ export function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
   useEffect(() => {
     if (!product) return;
     if (process.env.NEXT_PUBLIC_SITE_URL) {
-      setShareUrl(`${process.env.NEXT_PUBLIC_SITE_URL}/product/${product.id}`);
+      setShareUrl(`${getSiteUrl(process.env.NEXT_PUBLIC_SITE_URL)}/product/${product.id}`);
       return;
     }
     if (typeof window === "undefined") return;

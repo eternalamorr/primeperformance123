@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { COMPANY } from "@/lib/company";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Политика обработки персональных данных",
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://example.ru";
+  const siteUrl = getSiteUrl("https://example.ru");
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? COMPANY.email;
 
   return (

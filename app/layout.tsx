@@ -7,6 +7,7 @@ import { FooterWrapper } from "@/components/footer-wrapper";
 import { CartProvider } from "@/components/cart-context";
 import { CookieConsent } from "@/components/cookie-consent";
 import { BootLoader } from "@/components/boot-loader";
+import { getSiteUrl } from "@/lib/site-url";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -20,7 +21,7 @@ const spaceGrotesk = Space_Grotesk({
   weight: ["400", "500", "700"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = getSiteUrl();
 const siteName = "PRIME PERFORMANCE";
 const defaultTitle = "Премиальные офисные кресла";
 const defaultDescription =

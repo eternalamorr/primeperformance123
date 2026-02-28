@@ -15,3 +15,7 @@ dist/
 backups/
 artifacts/media-backups/
 video/vidos2.mp4
+.tmp/
+exports/
+logo/
+public/gemini-3-pro-image-preview_*

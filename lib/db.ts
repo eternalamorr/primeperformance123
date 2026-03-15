@@ -62,10 +62,15 @@ function getSslConfig() {
 
 export function getDbPool() {
   if (!pool) {
+    const connectTimeoutMs = Number(process.env.DATABASE_CONNECT_TIMEOUT_MS || 5000);
+    const queryTimeoutMs = Number(process.env.DATABASE_QUERY_TIMEOUT_MS || 8000);
+
     pool = new Pool({
       connectionString: getDatabaseUrl(),
       ssl: getSslConfig(),
       max: Number(process.env.DATABASE_POOL_MAX || 10),
+      connectionTimeoutMillis: Number.isFinite(connectTimeoutMs) ? connectTimeoutMs : 5000,
+      query_timeout: Number.isFinite(queryTimeoutMs) ? queryTimeoutMs : 8000,
     });
   }
   return pool;

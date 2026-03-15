@@ -68,8 +68,10 @@ export function ProductCarousel() {
         setIsLoading(true);
         setLoadError(null);
       }
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 15000);
       try {
-        const res = await fetch("/api/products");
+        const res = await fetch("/api/products", { signal: controller.signal });
         if (!res.ok) {
           if (active) setLoadError("Не удалось загрузить каталог.");
           return;
@@ -86,9 +88,15 @@ export function ProductCarousel() {
         } else if (active) {
           setLoadError("Каталог пока пуст.");
         }
-      } catch {
-        if (active) setLoadError("Ошибка сети при загрузке каталога.");
+      } catch (error) {
+        if (!active) return;
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setLoadError("Сервер долго отвечает. Проверьте подключение к базе данных.");
+        } else {
+          setLoadError("Ошибка сети при загрузке каталога.");
+        }
       } finally {
+        window.clearTimeout(timeoutId);
         if (active) setIsLoading(false);
       }
     };

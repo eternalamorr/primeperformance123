@@ -1,6 +1,6 @@
 import { randomBytes, scrypt as nodeScrypt } from "node:crypto";
 import { promisify } from "node:util";
-import { createClient } from "@supabase/supabase-js";
+import { Pool } from "pg";
 
 const scryptAsync = promisify(nodeScrypt);
 
@@ -32,23 +32,24 @@ console.log("password_hash:");
 console.log(hash);
 
 if (username) {
-  const url = process.env.SUPABASE_URL;
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const databaseUrl = process.env.DATABASE_URL;
 
-  if (!url || !serviceRole) {
-    console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for --set mode");
+  if (!databaseUrl) {
+    console.error("Missing DATABASE_URL for --set mode");
     process.exit(1);
   }
 
-  const supabase = createClient(url, serviceRole, { auth: { persistSession: false } });
+  const pool = new Pool({ connectionString: databaseUrl });
+  const result = await pool.query(
+    `update admin_users
+     set password_hash = $1, is_active = true
+     where username = $2`,
+    [hash, username]
+  );
+  await pool.end();
 
-  const { error } = await supabase
-    .from("admin_users")
-    .update({ password_hash: hash, is_active: true })
-    .eq("username", username);
-
-  if (error) {
-    console.error(`Failed to update admin_users for ${username}: ${error.message}`);
+  if (result.rowCount === 0) {
+    console.error(`Failed to update admin_users for ${username}: user not found`);
     process.exit(1);
   }
 

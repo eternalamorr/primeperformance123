@@ -1,8 +1,7 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { getSupabasePublic } from "@/lib/supabase-public";
+import { dbQuery } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -10,8 +9,6 @@ const MODEL_PATH = join(process.cwd(), "models", "766e7299c962b7daa4070f9bfa59fb
 
 export async function GET() {
   const startedAt = Date.now();
-  let supabasePublic;
-  let supabaseAdmin;
 
   const checks: Record<string, { ok: boolean; details?: string }> = {
     api: { ok: true },
@@ -21,16 +18,12 @@ export async function GET() {
     queue: { ok: true },
   };
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-    checks.env = { ok: false, details: "Missing SUPABASE_URL or SUPABASE_ANON_KEY" };
+  if (!process.env.DATABASE_URL) {
+    checks.env = { ok: false, details: "Missing DATABASE_URL" };
   }
 
   try {
-    supabasePublic = getSupabasePublic();
-    const { error } = await supabasePublic.from("products").select("id", { count: "exact", head: true });
-    if (error) {
-      checks.db = { ok: false, details: error.message };
-    }
+    await dbQuery("select id from products limit 1");
   } catch (error) {
     checks.db = { ok: false, details: error instanceof Error ? error.message : "Unknown DB error" };
   }
@@ -48,18 +41,14 @@ export async function GET() {
   }
 
   try {
-    supabaseAdmin = getSupabaseAdmin();
-    const { count, error } = await supabaseAdmin
-      .from("pending_orders")
-      .select("id", { count: "exact", head: true })
-      .is("processed_at", null);
-
-    if (error) {
-      checks.queue = { ok: false, details: error.message };
-    } else if ((count ?? 0) > 100) {
+    const { rows } = await dbQuery<{ count: string }>(
+      "select count(*)::text as count from pending_orders where processed_at is null"
+    );
+    const count = Number(rows[0]?.count ?? "0");
+    if (count > 100) {
       checks.queue = { ok: false, details: `Pending orders backlog is too high: ${count}` };
     } else {
-      checks.queue = { ok: true, details: `Pending orders: ${count ?? 0}` };
+      checks.queue = { ok: true, details: `Pending orders: ${count}` };
     }
   } catch (error) {
     checks.queue = {

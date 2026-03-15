@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { uploadPublicObject } from "@/lib/s3";
 import { requireAdmin } from "@/lib/admin-guard";
 import { enforceSameOrigin, getClientIp } from "@/lib/request-helpers";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
-const bucket = process.env.SUPABASE_STORAGE_BUCKET || "product-images";
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
 
@@ -72,7 +71,6 @@ const extensionByType: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
-  const supabaseAdmin = getSupabaseAdmin();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
@@ -112,19 +110,16 @@ export async function POST(request: Request) {
 
   const safeExt = extensionByType[detectedType] || "png";
   const fileName = `${Date.now()}-${randomUUID()}.${safeExt}`;
-  const path = `products/${fileName}`;
+  const key = `products/${fileName}`;
 
-  const { error } = await supabaseAdmin.storage
-    .from(bucket)
-    .upload(path, arrayBuffer, {
+  try {
+    const url = await uploadPublicObject({
+      key,
+      body: arrayBuffer,
       contentType: detectedType,
-      upsert: false,
     });
-
-  if (error) {
+    return NextResponse.json({ url });
+  } catch {
     return NextResponse.json({ error: "Не удалось загрузить файл." }, { status: 500 });
   }
-
-  const { data } = supabaseAdmin.storage.from(bucket).getPublicUrl(path);
-  return NextResponse.json({ url: data.publicUrl });
 }

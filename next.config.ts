@@ -14,8 +14,8 @@ const csp = [
     ? "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://challenges.cloudflare.com"
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
   isProd
-    ? "connect-src 'self' blob: https://challenges.cloudflare.com https://*.supabase.co https://api.telegram.org"
-    : "connect-src 'self' blob: ws: http://localhost:* https://localhost:* https://challenges.cloudflare.com https://*.supabase.co https://api.telegram.org",
+    ? "connect-src 'self' blob: https://challenges.cloudflare.com https://api.telegram.org"
+    : "connect-src 'self' blob: ws: http://localhost:* https://localhost:* https://challenges.cloudflare.com https://api.telegram.org",
   "frame-src https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   isProd ? "upgrade-insecure-requests" : "",

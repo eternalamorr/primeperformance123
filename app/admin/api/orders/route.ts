@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { dbQuery } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { getClientIp } from "@/lib/request-helpers";
 import { rateLimit } from "@/lib/rate-limit";
@@ -8,7 +8,6 @@ import { rateLimit } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const supabaseAdmin = getSupabaseAdmin();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
@@ -21,14 +20,12 @@ export async function GET() {
     return NextResponse.json({ error: "Слишком много запросов." }, { status: 429 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("orders")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) {
+  try {
+    const { rows } = await dbQuery(
+      "select * from orders order by created_at desc"
+    );
+    return NextResponse.json(rows);
+  } catch {
     return NextResponse.json({ error: "Не удалось загрузить заказы." }, { status: 500 });
   }
-
-  return NextResponse.json(data ?? []);
 }

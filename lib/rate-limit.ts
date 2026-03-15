@@ -3,25 +3,9 @@ type RateLimitEntry = {
   resetAt: number;
 };
 
-const bucket = new Map<string, RateLimitEntry>();
-let supabaseClientPromise: Promise<
-  import("@supabase/supabase-js").SupabaseClient | null
-> | null = null;
+import { dbQuery } from "@/lib/db";
 
-const getSupabaseForRateLimit = async () => {
-  if (!supabaseClientPromise) {
-    supabaseClientPromise = (async () => {
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!supabaseUrl || !serviceRoleKey) return null;
-      const { createClient } = await import("@supabase/supabase-js");
-      return createClient(supabaseUrl, serviceRoleKey, {
-        auth: { persistSession: false },
-      });
-    })();
-  }
-  return supabaseClientPromise;
-};
+const bucket = new Map<string, RateLimitEntry>();
 
 const fallbackRateLimit = ({
   key,
@@ -68,23 +52,11 @@ export async function rateLimit({
   windowMs: number;
 }) {
   try {
-    const supabase = await getSupabaseForRateLimit();
-    if (!supabase) {
-      return fallbackRateLimit({ key, limit, windowMs });
-    }
-
-    const { data, error } = await supabase.rpc("consume_rate_limit", {
-      p_key: key,
-      p_limit: limit,
-      p_window_ms: windowMs,
-    });
-
-    if (error) {
-      console.error("Supabase rate limit RPC failed, using in-memory fallback:", error.message);
-      return fallbackRateLimit({ key, limit, windowMs });
-    }
-
-    const row = Array.isArray(data) ? data[0] : data;
+    const result = await dbQuery<{ ok: boolean; remaining: number; reset_at: string }>(
+      "select ok, remaining, reset_at from consume_rate_limit($1, $2, $3)",
+      [key, limit, windowMs]
+    );
+    const row = result.rows[0];
     if (!row || typeof row.ok !== "boolean") {
       return fallbackRateLimit({ key, limit, windowMs });
     }

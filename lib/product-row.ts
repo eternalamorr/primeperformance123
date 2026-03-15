@@ -1,7 +1,7 @@
 import type { Product } from "@/lib/products";
 
 export interface ProductRow {
-  id: number;
+  id: number | string;
   name: string;
   price: string;
   segment: string | null;
@@ -37,7 +37,7 @@ const mapColorGallery = (value: unknown) => {
 };
 
 export const mapProductRow = (row: ProductRow): Product => ({
-  id: row.id,
+  id: Number(row.id),
   name: row.name,
   price: row.price,
   segment: row.segment ?? "standard",

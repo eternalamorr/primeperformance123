@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { dbQuery } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { enforceSameOrigin, getClientIp } from "@/lib/request-helpers";
 import { rateLimit } from "@/lib/rate-limit";
@@ -9,24 +9,18 @@ import { ProductSchema } from "@/lib/validators";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const supabaseAdmin = getSupabaseAdmin();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
-  const { data, error } = await supabaseAdmin
-    .from("products")
-    .select("*")
-    .order("id", { ascending: true });
-
-  if (error) {
+  try {
+    const { rows } = await dbQuery("select * from products order by id asc");
+    return NextResponse.json(rows);
+  } catch {
     return NextResponse.json({ error: "Не удалось загрузить товары." }, { status: 500 });
   }
-
-  return NextResponse.json(data ?? []);
 }
 
 export async function POST(request: Request) {
-  const supabaseAdmin = getSupabaseAdmin();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
@@ -51,8 +45,34 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error } = await supabaseAdmin.from("products").insert(parsed.data);
-  if (error) {
+  const product = parsed.data;
+  try {
+    await dbQuery(
+      `insert into products (
+        id, name, price, segment, description, full_description, features, specs, colors,
+        color_gallery, badge, image, gallery, is_upgrade
+      ) values (
+        $1, $2, $3, $4, $5, $6, $7::text[], $8::jsonb, $9::jsonb,
+        $10::jsonb, $11, $12, $13::jsonb, $14
+      )`,
+      [
+        product.id,
+        product.name,
+        product.price,
+        product.segment,
+        product.description ?? null,
+        product.full_description ?? null,
+        product.features ?? [],
+        JSON.stringify(product.specs ?? []),
+        JSON.stringify(product.colors ?? []),
+        JSON.stringify(product.color_gallery ?? null),
+        product.badge ?? null,
+        product.image ?? null,
+        JSON.stringify(product.gallery ?? []),
+        product.is_upgrade ?? false,
+      ]
+    );
+  } catch {
     return NextResponse.json({ error: "Не удалось создать товар." }, { status: 500 });
   }
   return NextResponse.json({ ok: true });

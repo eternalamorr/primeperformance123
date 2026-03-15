@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createSession, safeEqual, sessionCookieName, verifyAdminPassword } from "@/lib/admin-auth";
 import { enforceSameOrigin, getClientIp } from "@/lib/request-helpers";
 import { rateLimit } from "@/lib/rate-limit";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { dbQuery } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -20,7 +20,6 @@ type AdminUserRow = {
 };
 
 export async function POST(request: Request) {
-  const supabaseAdmin = getSupabaseAdmin();
   const originCheck = enforceSameOrigin(request);
   if (originCheck) return originCheck;
 
@@ -46,16 +45,25 @@ export async function POST(request: Request) {
   const password = parsed.data.password;
   const isProd = process.env.NODE_ENV === "production";
 
-  const { data: dbAdminRaw, error: dbError } = await supabaseAdmin
-    .from("admin_users")
-    .select("username,password_hash,is_active")
-    .eq("username", username)
-    .maybeSingle();
-  const dbAdmin = (dbAdminRaw ?? null) as AdminUserRow | null;
-
-  if (dbError && dbError.code !== "42P01") {
-    console.error("Failed to query admin_users:", dbError);
-    return NextResponse.json({ error: "Ошибка проверки учетных данных." }, { status: 500 });
+  let dbAdmin: AdminUserRow | null = null;
+  try {
+    const { rows } = await dbQuery<AdminUserRow>(
+      `select username, password_hash, is_active
+       from admin_users
+       where username = $1
+       limit 1`,
+      [username]
+    );
+    dbAdmin = rows[0] ?? null;
+  } catch (error) {
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String((error as { code?: string }).code ?? "")
+        : "";
+    if (code !== "42P01") {
+      console.error("Failed to query admin_users:", error);
+      return NextResponse.json({ error: "Ошибка проверки учетных данных." }, { status: 500 });
+    }
   }
 
   if (dbAdmin?.is_active) {

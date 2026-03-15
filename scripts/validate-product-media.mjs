@@ -1,25 +1,17 @@
 import { existsSync } from "node:fs";
-import { createClient } from "@supabase/supabase-js";
+import { Pool } from "pg";
 
-const url = process.env.SUPABASE_URL;
-const anon = process.env.SUPABASE_ANON_KEY;
+const databaseUrl = process.env.DATABASE_URL;
 
-if (!url || !anon) {
-  console.error("Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+if (!databaseUrl) {
+  console.error("Missing DATABASE_URL");
   process.exit(1);
 }
 
-const supabase = createClient(url, anon, { auth: { persistSession: false } });
-
-const { data, error } = await supabase
-  .from("products")
-  .select("id,name,image,gallery,color_gallery")
-  .order("id", { ascending: true });
-
-if (error) {
-  console.error("Failed to load products:", error.message);
-  process.exit(1);
-}
+const pool = new Pool({ connectionString: databaseUrl });
+const { rows: data } = await pool.query(
+  "select id, name, image, gallery, color_gallery from products order by id asc"
+);
 
 const missing = [];
 
@@ -50,7 +42,9 @@ for (const row of data ?? []) {
 if (missing.length > 0) {
   console.error(`Found ${missing.length} invalid media paths in products`);
   console.error(JSON.stringify(missing.slice(0, 50), null, 2));
+  await pool.end();
   process.exit(1);
 }
 
 console.log(`Media validation passed: ${data?.length ?? 0} products, 0 broken paths.`);
+await pool.end();

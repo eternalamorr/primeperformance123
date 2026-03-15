@@ -1,43 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import dynamic from "next/dynamic";
 import { Hero } from "@/components/hero";
-
-const ProductCarousel = dynamic(
-  () => import("@/components/product-carousel").then((mod) => mod.ProductCarousel),
-  {
-    loading: () => <section className="min-h-[520px]" aria-hidden="true" />,
-  }
-);
-
-const ConfiguratorSection = dynamic(
-  () => import("@/components/configurator-section").then((mod) => mod.ConfiguratorSection),
-  {
-    loading: () => <section className="min-h-[540px]" aria-hidden="true" />,
-  }
-);
-
-const FeaturesSection = dynamic(
-  () => import("@/components/features-section").then((mod) => mod.FeaturesSection),
-  {
-    loading: () => <section className="min-h-[420px]" aria-hidden="true" />,
-  }
-);
-
-const AboutSection = dynamic(
-  () => import("@/components/about-section").then((mod) => mod.AboutSection),
-  {
-    loading: () => <section className="min-h-[480px]" aria-hidden="true" />,
-  }
-);
-
-const StatsBar = dynamic(
-  () => import("@/components/stats-bar").then((mod) => mod.StatsBar),
-  {
-    loading: () => <section className="min-h-[140px]" aria-hidden="true" />,
-  }
-);
+import { ProductCarousel } from "@/components/product-carousel";
+import { ConfiguratorSection } from "@/components/configurator-section";
+import { FeaturesSection } from "@/components/features-section";
+import { AboutSection } from "@/components/about-section";
+import { StatsBar } from "@/components/stats-bar";
 
 export function HomePage() {
   useEffect(() => {

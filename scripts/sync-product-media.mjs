@@ -1,14 +1,13 @@
 import { existsSync } from "node:fs";
-import { createClient } from "@supabase/supabase-js";
+import { Pool } from "pg";
 
-const url = process.env.SUPABASE_URL;
-const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const databaseUrl = process.env.DATABASE_URL;
 
-if (!url || !serviceRole) {
-  throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+if (!databaseUrl) {
+  throw new Error("Missing DATABASE_URL");
 }
 
-const supabase = createClient(url, serviceRole, { auth: { persistSession: false } });
+const pool = new Pool({ connectionString: databaseUrl });
 
 const updates = [
   {
@@ -224,14 +223,24 @@ for (const item of updates) {
     color_gallery: item.color_gallery,
   };
 
-  const { error } = await supabase
-    .from("products")
-    .update(payload)
-    .eq("id", item.id);
-
-  if (error) {
-    throw new Error(`Failed updating id=${item.id}: ${error.message}`);
-  }
+  await pool.query(
+    `update products
+     set segment = $1,
+         is_upgrade = $2,
+         image = $3,
+         gallery = $4::jsonb,
+         color_gallery = $5::jsonb
+     where id = $6`,
+    [
+      payload.segment,
+      payload.is_upgrade,
+      payload.image,
+      JSON.stringify(payload.gallery ?? []),
+      JSON.stringify(payload.color_gallery ?? {}),
+      item.id,
+    ]
+  );
 }
 
 console.log(`Updated ${updates.length} products.`);
+await pool.end();

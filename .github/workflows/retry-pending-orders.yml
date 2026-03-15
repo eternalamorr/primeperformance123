@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_SSL: "1"
+      PG_SSL_REJECT_UNAUTHORIZED: "0"
       PENDING_ORDERS_BATCH_SIZE: ${{ secrets.PENDING_ORDERS_BATCH_SIZE }}
       PENDING_ORDERS_MAX_DELAY_SECONDS: ${{ secrets.PENDING_ORDERS_MAX_DELAY_SECONDS }}
 
@@ -32,9 +33,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Skip if Supabase secrets are missing
-        if: ${{ env.SUPABASE_URL == '' || env.SUPABASE_SERVICE_ROLE_KEY == '' }}
-        run: echo "Supabase secrets are not set. Skipping." && exit 0
+      - name: Skip if database secret is missing
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "DATABASE_URL is not set. Skipping." && exit 0
 
       - name: Retry pending orders
         run: pnpm orders:retry-pending

@@ -82,11 +82,21 @@ function ResponsiveCamera() {
   return null;
 }
 
-function ChairModel({ animateIn }: { animateIn: boolean }) {
+function ChairModel({
+  animateIn,
+  onReady,
+}: {
+  animateIn: boolean;
+  onReady: () => void;
+}) {
   const groupRef = useRef<THREE.Group>(null);
   const introStartRef = useRef<number | null>(null);
   const { size } = useThree();
   const { scene } = useGLTF(MODEL_URL) as unknown as { scene: THREE.Group };
+
+  useEffect(() => {
+    onReady();
+  }, [onReady, scene]);
 
   const baseScale = useMemo(() => {
     const box = new THREE.Box3().setFromObject(scene);
@@ -182,92 +192,112 @@ function ChairModel({ animateIn }: { animateIn: boolean }) {
   );
 }
 
+function ChairFallback({ overlay = false }: { overlay?: boolean }) {
+  return (
+    <div
+      className={`h-full w-full rounded-3xl bg-foreground/[0.02] border border-foreground/10 overflow-hidden ${
+        overlay ? "absolute inset-0 z-[3] pointer-events-none" : ""
+      }`}
+    >
+      <div className="relative h-full w-full">
+        <Image
+          src="/videos/hero-chair-poster.png"
+          alt="Chair preview"
+          fill
+          className="object-contain p-8 opacity-90"
+          sizes="(max-width: 1024px) 100vw, 50vw"
+          priority
+        />
+        <div className="absolute inset-x-0 bottom-4 text-center text-[11px] uppercase tracking-[0.18em] text-foreground/45">
+          3D preview unavailable
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ChairHeroScene({ animateIn = true }: { animateIn?: boolean }) {
   const [canRender, setCanRender] = useState(false);
   const [modelFailed, setModelFailed] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
 
   useEffect(() => {
     setCanRender(supportsWebGL());
   }, []);
 
+  useEffect(() => {
+    if (!canRender || modelReady || modelFailed) return;
+    const timeoutId = window.setTimeout(() => {
+      setModelFailed(true);
+    }, 15000);
+    return () => window.clearTimeout(timeoutId);
+  }, [canRender, modelReady, modelFailed]);
+
   if (!canRender || modelFailed) {
-    return (
-      <div className="h-full w-full rounded-3xl bg-foreground/[0.02] border border-foreground/10 overflow-hidden">
-        <div className="relative h-full w-full">
-          <Image
-            src="/videos/hero-chair-poster.png"
-            alt="Chair preview"
-            fill
-            className="object-contain p-8 opacity-90"
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            priority
-          />
-          <div className="absolute inset-x-0 bottom-4 text-center text-[11px] uppercase tracking-[0.18em] text-foreground/45">
-            3D preview unavailable
-          </div>
-        </div>
-      </div>
-    );
+    return <ChairFallback />;
   }
 
   return (
-    <Canvas
-      camera={{ fov: 45, position: [0, 1.55, 3.4], near: 0.1, far: 50 }}
-      gl={{ antialias: true, alpha: true }}
-      dpr={[1, 1.75]}
-      style={{ width: "100%", height: "100%", background: "transparent", touchAction: "pan-y" }}
-      onCreated={({ gl, camera }) => {
-        gl.toneMappingExposure = 1.08;
-        camera.lookAt(MODEL_OFFSET_X, -0.05, 0);
-      }}
-    >
-      <Suspense fallback={null}>
-        <ResponsiveCamera />
-        <ambientLight intensity={1.4} color="#f4f7ff" />
-        <spotLight
-          position={[-8.5, 2.6, 0.6]}
-          intensity={4.2}
-          angle={0.32}
-          penumbra={0.95}
-          color="#c7b8a6"
-        />
-        <spotLight
-          position={[-2.8, 2.1, 2.5]}
-          intensity={2.4}
-          angle={0.28}
-          penumbra={0.85}
-          color="#ffffff"
-          castShadow={false}
-        />
-        <directionalLight position={[-7.2, 0.8, -1.8]} intensity={1.2} color="#e6f0ff" />
-        <directionalLight position={[4.5, 2.2, 3.5]} intensity={1.6} color="#ffffff" />
-        <pointLight position={[0, 1.8, 2.2]} intensity={1.5} color="#ffffff" />
-        {ENABLE_HDRI ? (
-          <Environment preset="studio" environmentIntensity={0.6} />
-        ) : (
-          <Environment environmentIntensity={0.6}>
-            <Lightformer
-              intensity={2}
-              rotation-x={Math.PI / 2}
-              position={[0, 3, 0]}
-              scale={[6, 6, 1]}
-            />
-            <Lightformer
-              intensity={1.2}
-              position={[-4, 1.5, -2]}
-              scale={[3, 2, 1]}
-            />
-            <Lightformer
-              intensity={0.9}
-              position={[4, 1, 2]}
-              scale={[2.5, 2, 1]}
-            />
-          </Environment>
-        )}
-        <ModelBoundary onError={() => setModelFailed(true)}>
-          <ChairModel animateIn={animateIn} />
-        </ModelBoundary>
-      </Suspense>
-    </Canvas>
+    <div className="relative h-full w-full">
+      {!modelReady ? <ChairFallback overlay /> : null}
+      <Canvas
+        camera={{ fov: 45, position: [0, 1.55, 3.4], near: 0.1, far: 50 }}
+        gl={{ antialias: true, alpha: true }}
+        dpr={[1, 1.75]}
+        style={{ width: "100%", height: "100%", background: "transparent", touchAction: "pan-y" }}
+        onCreated={({ gl, camera }) => {
+          gl.toneMappingExposure = 1.08;
+          camera.lookAt(MODEL_OFFSET_X, -0.05, 0);
+        }}
+      >
+        <Suspense fallback={null}>
+          <ResponsiveCamera />
+          <ambientLight intensity={1.4} color="#f4f7ff" />
+          <spotLight
+            position={[-8.5, 2.6, 0.6]}
+            intensity={4.2}
+            angle={0.32}
+            penumbra={0.95}
+            color="#c7b8a6"
+          />
+          <spotLight
+            position={[-2.8, 2.1, 2.5]}
+            intensity={2.4}
+            angle={0.28}
+            penumbra={0.85}
+            color="#ffffff"
+            castShadow={false}
+          />
+          <directionalLight position={[-7.2, 0.8, -1.8]} intensity={1.2} color="#e6f0ff" />
+          <directionalLight position={[4.5, 2.2, 3.5]} intensity={1.6} color="#ffffff" />
+          <pointLight position={[0, 1.8, 2.2]} intensity={1.5} color="#ffffff" />
+          {ENABLE_HDRI ? (
+            <Environment preset="studio" environmentIntensity={0.6} />
+          ) : (
+            <Environment environmentIntensity={0.6}>
+              <Lightformer
+                intensity={2}
+                rotation-x={Math.PI / 2}
+                position={[0, 3, 0]}
+                scale={[6, 6, 1]}
+              />
+              <Lightformer
+                intensity={1.2}
+                position={[-4, 1.5, -2]}
+                scale={[3, 2, 1]}
+              />
+              <Lightformer
+                intensity={0.9}
+                position={[4, 1, 2]}
+                scale={[2.5, 2, 1]}
+              />
+            </Environment>
+          )}
+          <ModelBoundary onError={() => setModelFailed(true)}>
+            <ChairModel animateIn={animateIn} onReady={() => setModelReady(true)} />
+          </ModelBoundary>
+        </Suspense>
+      </Canvas>
+    </div>
   );
 }

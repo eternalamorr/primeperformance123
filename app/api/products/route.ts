@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
-import { getSupabasePublic } from "@/lib/supabase-public";
+import { dbQuery } from "@/lib/db";
 import { mapProductRows, type ProductRow } from "@/lib/product-row";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const supabasePublic = getSupabasePublic();
-  const { data, error } = await supabasePublic
-    .from("products")
-    .select("*")
-    .order("id", { ascending: true });
-
-  if (error) {
+  try {
+    const { rows } = await dbQuery<ProductRow>("select * from products order by id asc");
+    return NextResponse.json(mapProductRows(rows));
+  } catch {
     return NextResponse.json({ error: "Не удалось загрузить каталог." }, { status: 500 });
   }
-
-  return NextResponse.json(mapProductRows(data as ProductRow[]));
 }

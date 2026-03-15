@@ -4,8 +4,7 @@ import { z } from "zod";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { sendSmtpMessage } from "@/lib/smtp";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { getSupabasePublic } from "@/lib/supabase-public";
+import { dbQuery } from "@/lib/db";
 import { enforceSameOrigin, getClientIp } from "@/lib/request-helpers";
 
 export const runtime = "nodejs";
@@ -29,7 +28,7 @@ const OrderSchema = z.object({
   items: z
     .array(
       z.object({
-        id: z.number().optional(),
+        id: z.coerce.number().int().positive().optional(),
         name: z.string().trim().min(1).max(220),
         price: z.string().trim().max(40).optional(),
         quantity: z.number().int().positive().optional(),
@@ -42,7 +41,13 @@ const OrderSchema = z.object({
   configuration: z
     .record(
       z.string().trim().min(1).max(80),
-      z.union([z.string().trim().max(500), z.number(), z.boolean(), z.null()])
+      z.union([
+        z.string().trim().max(500),
+        z.number(),
+        z.boolean(),
+        z.null(),
+        z.array(z.string().trim().max(120)).max(20),
+      ])
     )
     .optional(),
   turnstileToken: z.string().min(1),
@@ -84,7 +89,7 @@ const buildOrderLines = ({
     extras?: string[];
     quantity?: number;
   }>;
-  configuration?: Record<string, string | number | boolean | null>;
+  configuration?: Record<string, string | number | boolean | null | string[]>;
   totalPrice: number;
   extras?: string[];
 }) => {
@@ -114,7 +119,8 @@ const buildOrderLines = ({
   if (configuration && Object.keys(configuration).length > 0) {
     lines.push("", "<b>Конфигурация:</b>");
     Object.entries(configuration).forEach(([key, value]) => {
-      lines.push(`• ${escapeHtml(key)}: ${escapeHtml(String(value))}`);
+      const printable = Array.isArray(value) ? value.join(", ") : String(value);
+      lines.push(`• ${escapeHtml(key)}: ${escapeHtml(printable)}`);
     });
   }
 
@@ -130,8 +136,6 @@ const buildOrderLines = ({
 };
 
 export async function POST(request: Request) {
-  const supabaseAdmin = getSupabaseAdmin();
-  const supabasePublic = getSupabasePublic();
   const originCheck = enforceSameOrigin(request);
   if (originCheck) return originCheck;
 
@@ -243,9 +247,29 @@ export async function POST(request: Request) {
       total_price: totalPrice || null,
       status: "new",
     };
-    const { error } = await supabasePublic.from("orders").insert(orderRow);
+    let orderInsertError: Error | null = null;
+    try {
+      await dbQuery(
+        `insert into orders (
+          source, customer_name, customer_phone, items, configuration, total_price, status
+        ) values (
+          $1, $2, $3, $4::jsonb, $5::jsonb, $6, $7
+        )`,
+        [
+          orderRow.source,
+          orderRow.customer_name,
+          orderRow.customer_phone,
+          JSON.stringify(orderRow.items),
+          JSON.stringify(orderRow.configuration),
+          orderRow.total_price,
+          orderRow.status,
+        ]
+      );
+    } catch (error) {
+      orderInsertError = error instanceof Error ? error : new Error(String(error));
+    }
 
-    if (error) {
+    if (orderInsertError) {
       if (!allowPendingOrderQueue) {
         return NextResponse.json(
           { error: "Не удалось сохранить заказ." },
@@ -253,19 +277,27 @@ export async function POST(request: Request) {
         );
       }
 
-      const queuedRes = await supabaseAdmin.from("pending_orders").insert({
-        source: orderRow.source,
-        customer_name: orderRow.customer_name,
-        customer_phone: orderRow.customer_phone,
-        items: orderRow.items,
-        configuration: orderRow.configuration,
-        total_price: orderRow.total_price,
-        payload: payload,
-        reason: "orders_insert_failed",
-        last_error: error.message,
-      });
-
-      if (queuedRes.error) {
+      try {
+        await dbQuery(
+          `insert into pending_orders (
+            source, customer_name, customer_phone, items, configuration, total_price,
+            payload, reason, last_error
+          ) values (
+            $1, $2, $3, $4::jsonb, $5::jsonb, $6, $7::jsonb, $8, $9
+          )`,
+          [
+            orderRow.source,
+            orderRow.customer_name,
+            orderRow.customer_phone,
+            JSON.stringify(orderRow.items),
+            JSON.stringify(orderRow.configuration),
+            orderRow.total_price,
+            JSON.stringify(payload),
+            "orders_insert_failed",
+            orderInsertError.message,
+          ]
+        );
+      } catch {
         return NextResponse.json(
           { error: "Не удалось сохранить заказ. Попробуйте позже." },
           { status: 503 }

@@ -1,101 +1,99 @@
-# Backend Setup (Supabase + Telegram + Turnstile)
+# Backend Setup (Timeweb PostgreSQL + S3 + Telegram + Turnstile)
 
 ## 1) Env variables
-Create `.env.local` рядом с проектом и заполни по примеру из `.env.local.example`.
+Создай `.env.local` рядом с проектом и заполни по примеру `.env.local.example`.
 
-Нужно:
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+Обязательные:
+- `DATABASE_URL`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
 - `TURNSTILE_SECRET_KEY`
+- `ADMIN_SESSION_SECRET`
+
+Для админ-загрузки изображений (S3-совместимое хранилище):
+- `S3_ENDPOINT`
+- `S3_REGION` (обычно `ru-1`)
+- `S3_BUCKET`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `S3_PUBLIC_BASE_URL`
+- `S3_FORCE_PATH_STYLE` (`1`/`0`, для Timeweb обычно `1`)
+
+Опционально:
+- `DATABASE_SSL` (`1`/`0`)
+- `PG_SSL_REJECT_UNAUTHORIZED` (`1`/`0`)
+- `DATABASE_POOL_MAX`
 - `ALLOW_ORDERS_WITHOUT_TURNSTILE` (`0`/`1`)
 - `ALLOW_PENDING_ORDER_QUEUE` (`0`/`1`)
-- `ADMIN_USER`
-- `ADMIN_PASSWORD`
-- `ADMIN_SESSION_SECRET`
-- `SUPABASE_STORAGE_BUCKET` (по умолчанию `product-images`)
-- `NOTIFY_EMAIL_FALLBACK` (`0`/`1`)
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_SECURE` (`0`/`1`)
-- `SMTP_USER`
-- `SMTP_PASS`
-- `SMTP_FROM`
-- `SMTP_TO`
+- `ADMIN_USER`, `ADMIN_PASSWORD` (fallback только не в production)
+- `NOTIFY_EMAIL_FALLBACK`, `SMTP_*`
 
-## 2) Создать таблицы в Supabase
-Открой Supabase → SQL Editor и по очереди запусти:
-- `supabase/schema.sql`
-- `supabase/seed.sql`
-- `supabase/optimization-schema.sql`
-- `supabase/optimization-seed.sql`
+## 2) Инициализация БД
+Подключись к Timeweb PostgreSQL и выполни:
 
-Если таблицы уже были созданы раньше, нужно выполнить:
+```bash
+psql "postgresql://USER:PASSWORD@HOST:PORT/DB?sslmode=require" -f postgres/init.sql
 ```
-alter table products add column if not exists segment text not null default 'standard';
-```
-А затем выполнить `supabase/premium-seed.sql` (или добавить премиальные товары вручную).
 
-Важно: в `supabase/schema.sql` включены RLS политики для публичного чтения товаров и публичной вставки заказов.
+Проверка:
 
-## 3) Запуск локально
+```sql
+select count(*) from products;
+select count(*) from product_extras;
+select count(*) from admin_users;
 ```
+
+Ожидаемо после `init.sql`:
+- `products`: 9
+- `product_extras`: 3
+- `admin_users`: 1 (placeholder)
+
+## 3) Миграция данных из Supabase (если переносишь существующие данные)
+
+```bash
+pg_dump "SUPABASE_DB_URL" --schema=public --no-owner --no-privileges -f supabase_public.sql
+psql "TIMEWEB_DB_URL" -f supabase_public.sql
+```
+
+## 4) Админ-пользователь
+Сгенерировать hash:
+
+```bash
+pnpm admin:hash "your-password"
+```
+
+Установить hash в БД:
+
+```bash
+DATABASE_URL="..." pnpm admin:hash "your-password" -- --set admin
+```
+
+## 5) Запуск локально
+
+```bash
 pnpm install
 pnpm dev
 ```
 
-## 4) Проверка
-- Открыть сайт → оформить заказ из каталога или корзины.
-- В Supabase → Table editor → `orders` появится запись.
-- В Telegram придет сообщение.
+## 6) Проверка
+- Открыть сайт и каталог
+- Сделать тестовый заказ
+- Проверить запись в таблице `orders`
+- Проверить Telegram-уведомление
+- Открыть `/admin` и проверить логин/редактирование товаров
+- Проверить загрузку фото в админке
 
-## 5) Админка
-Открой `http://localhost:3000/admin` и войди под `ADMIN_USER/ADMIN_PASSWORD`.
-Для production рекомендуется использовать таблицу `admin_users`:
-- выполни `supabase/optimization-schema.sql`
-- создай/активируй пользователя и установи `password_hash` через:
-  `pnpm admin:hash 'your-password' -- --set admin`
-- в production fallback на `ADMIN_USER/ADMIN_PASSWORD` отключен, используется только `admin_users`
-
-## 6) Storage (для загрузки фото)
-В Supabase → Storage:
-1. Создай bucket `product-images` (Public).
-2. В админке можно загружать фото прямо в карточке товара.
-
-## 7) Управление каталогом
-В Supabase → Table editor → `products` можно менять:
-- `name`, `price`, `description`, `full_description`
-- `image`, `gallery`, `color_gallery`
-- `features`, `specs`, `colors`
-
-Сайт автоматически тянет каталог из БД через `/api/products`.
-
-## 8) Доп. функции товара из БД
-Теперь опции в карточке товара (массаж/вентиляция/подогрев) можно редактировать в таблице `product_extras`.
-Фронтенд берет их из `/api/product-extras` и использует локальный fallback, если таблица еще не создана.
-
-## 9) Predeploy checks
-- Синхронизировать пути каталога в БД: `pnpm sync:db`
-- Проверить валидность всех медиа-путей: `pnpm validate:media`
-- Smoke check (при запущенном `pnpm dev`): `pnpm smoke` (включает `/`, `/api/products`, `/api/product-extras`, `/api/chair-model`, и валидационный POST в `/api/orders`)
+## 7) Полезные скрипты
+- Синхронизация путей медиа в товарах: `pnpm sync:db`
+- Валидация медиа-путей: `pnpm validate:media`
+- Smoke check: `pnpm smoke`
+- Retry pending orders: `pnpm orders:retry-pending`
 - Полный predeploy минимум: `pnpm predeploy:check`
-- E2E happy-path заказа (test bypass): `BASE_URL=http://localhost:3000 E2E_BYPASS_TURNSTILE=1 E2E_FAKE_ORDER=1 pnpm e2e:order`
 
-## 10) CI и мониторинг
-- CI workflow: `.github/workflows/predeploy-checks.yml`
-  проверяет `lint`, `build`, `validate:media`, `smoke`, `e2e:order`.
-- Monitoring workflow: `.github/workflows/monitor.yml`
-  запускается каждые 5 минут и дергает `scripts/monitor-check.mjs`.
-- Pending orders retry workflow: `.github/workflows/retry-pending-orders.yml`
-  запускается каждые 5 минут и ретраит отложенные заказы (`scripts/retry-pending-orders.mjs`).
-
-Нужные GitHub Secrets для CI/monitoring:
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+## 8) CI/Secrets
+Минимальные секреты для CI/monitoring:
+- `DATABASE_URL`
 - `TURNSTILE_SECRET_KEY`
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
 - `ADMIN_SESSION_SECRET`

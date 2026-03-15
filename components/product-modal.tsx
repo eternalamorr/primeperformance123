@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TurnstileWidget } from "@/components/turnstile";
 import { getSiteUrl } from "@/lib/site-url";
+import { useTurnstileSiteKey } from "@/hooks/use-turnstile-site-key";
 
 const SHOW_COLORS_WITHOUT_PHOTOS = false;
 
@@ -79,7 +80,7 @@ export function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
     { id: "ventilation", label: "Вентиляция", price: 20000 },
     { id: "heating", label: "Подогрев", price: 20000 },
   ]);
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const turnstileSiteKey = useTurnstileSiteKey();
 
   const parsePrice = (value: string) => {
     const digits = value.replace(/[^\d]/g, "");

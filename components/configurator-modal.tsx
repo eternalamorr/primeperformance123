@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Palette, Layers, Sparkles, Settings2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TurnstileWidget } from "@/components/turnstile";
+import { useTurnstileSiteKey } from "@/hooks/use-turnstile-site-key";
 
 interface ConfiguratorModalProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ export function ConfiguratorModal({ isOpen, onClose }: ConfiguratorModalProps) {
   const [purchaseConsent, setPurchaseConsent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [honeypot, setHoneypot] = useState("");
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const turnstileSiteKey = useTurnstileSiteKey();
 
   useEffect(() => {
     if (isOpen) {

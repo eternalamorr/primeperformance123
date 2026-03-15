@@ -26,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import Image from "next/image";
 import { TurnstileWidget } from "@/components/turnstile";
+import { useTurnstileSiteKey } from "@/hooks/use-turnstile-site-key";
 
 export function CartDrawer() {
   const {
@@ -51,7 +52,7 @@ export function CartDrawer() {
   const [honeypot, setHoneypot] = React.useState("");
   const [purchaseConsent, setPurchaseConsent] = React.useState(false);
   const previousPurchaseOpen = React.useRef(false);
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const turnstileSiteKey = useTurnstileSiteKey();
 
   React.useEffect(() => {
     if (isPurchaseOpen && !previousPurchaseOpen.current) {

@@ -4,11 +4,51 @@ import { Pool, type QueryResult, type QueryResultRow } from "pg";
 
 let pool: Pool | null = null;
 
+function normalizeDatabaseUrl(rawValue: string) {
+  let value = rawValue.trim();
+
+  // Common copy-paste mistake from env files.
+  value = value.replace(/^DATABASE_URL\s*=\s*/i, "").trim();
+
+  // Some dashboards keep quotes from pasted values.
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1).trim();
+  }
+
+  // Remove accidental whitespace/newlines inserted while editing.
+  value = value.replace(/\s+/g, "");
+
+  // Common typo: host already contains port and an extra :PORT was added.
+  value = value.replace(/:(\d+):(\d+)(?=\/|\?|$)/, ":$1");
+
+  return value;
+}
+
 function getDatabaseUrl() {
-  const value = process.env.DATABASE_URL?.trim();
+  const rawValue = process.env.DATABASE_URL;
+  if (!rawValue) {
+    throw new Error("Missing DATABASE_URL");
+  }
+
+  const value = normalizeDatabaseUrl(rawValue);
   if (!value) {
     throw new Error("Missing DATABASE_URL");
   }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "postgresql:" && parsed.protocol !== "postgres:") {
+      throw new Error("Invalid DATABASE_URL protocol");
+    }
+  } catch {
+    throw new Error(
+      "Invalid DATABASE_URL format. Expected postgresql://user:password@host:5432/db?sslmode=require"
+    );
+  }
+
   return value;
 }
 
@@ -37,4 +77,3 @@ export async function dbQuery<T extends QueryResultRow>(
 ): Promise<QueryResult<T>> {
   return getDbPool().query<T>(text, values);
 }
-

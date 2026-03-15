@@ -39,6 +39,32 @@ export function enforceSameOrigin(request: Request) {
   }
 
   const requestOrigin = new URL(request.url).origin;
+  const trustedOrigins = new Set<string>([requestOrigin]);
+
+  const xForwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const xForwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  if (xForwardedProto && xForwardedHost) {
+    trustedOrigins.add(`${xForwardedProto}://${xForwardedHost}`);
+  }
+
+  const xForwardedOrigin = request.headers.get("x-forwarded-origin")?.split(",")[0]?.trim();
+  if (xForwardedOrigin) {
+    try {
+      trustedOrigins.add(new URL(xForwardedOrigin).origin);
+    } catch {
+      // Ignore malformed forwarded origin header.
+    }
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (siteUrl) {
+    try {
+      trustedOrigins.add(new URL(siteUrl).origin);
+    } catch {
+      // Ignore malformed site url.
+    }
+  }
+
   const origin = request.headers.get("origin");
   const referer = request.headers.get("referer");
 
@@ -55,7 +81,7 @@ export function enforceSameOrigin(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (sourceOrigin !== requestOrigin) {
+  if (!trustedOrigins.has(sourceOrigin)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

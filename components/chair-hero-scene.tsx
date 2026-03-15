@@ -9,7 +9,7 @@ import Image from "next/image";
 
 const MODEL_URL = "/api/chair-model?v=20260213";
 const MODEL_OFFSET_X = 0.86;
-const ENABLE_HDRI = process.env.NODE_ENV === "production";
+const ENABLE_HDRI = process.env.NEXT_PUBLIC_ENABLE_HDRI === "1";
 
 type ModelBoundaryProps = {
   children: ReactNode;

@@ -10,6 +10,48 @@ import Image from "next/image";
 const MODEL_URL = "/api/chair-model?v=20260213";
 const MODEL_OFFSET_X = 0.86;
 const ENABLE_HDRI = process.env.NEXT_PUBLIC_ENABLE_HDRI === "1";
+const HERO_MEDIA_MODE = (
+  process.env.NEXT_PUBLIC_HERO_MEDIA_MODE ??
+  (process.env.NEXT_PUBLIC_USE_HERO_VIDEO === "1" ? "video" : "3d")
+).toLowerCase();
+
+function getDevicePerformanceProfile() {
+  if (typeof window === "undefined") {
+    return {
+      lowPower: false,
+      preferVideo: false,
+    };
+  }
+
+  const nav = window.navigator as Navigator & {
+    deviceMemory?: number;
+    connection?: {
+      saveData?: boolean;
+      effectiveType?: string;
+    };
+  };
+
+  const isMobileViewport = window.matchMedia("(max-width: 1024px)").matches;
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const cpuCores = typeof nav.hardwareConcurrency === "number" ? nav.hardwareConcurrency : 8;
+  const memoryGb = typeof nav.deviceMemory === "number" ? nav.deviceMemory : 8;
+  const saveData = nav.connection?.saveData === true;
+  const network = nav.connection?.effectiveType ?? "";
+  const slowNetwork = network === "slow-2g" || network === "2g" || network === "3g";
+
+  const lowPower =
+    prefersReducedMotion ||
+    saveData ||
+    slowNetwork ||
+    isMobileViewport ||
+    cpuCores <= 4 ||
+    memoryGb <= 4;
+
+  return {
+    lowPower,
+    preferVideo: lowPower,
+  };
+}
 
 type ModelBoundaryProps = {
   children: ReactNode;
@@ -85,9 +127,11 @@ function ResponsiveCamera() {
 function ChairModel({
   animateIn,
   onReady,
+  autoRotate,
 }: {
   animateIn: boolean;
   onReady: () => void;
+  autoRotate: boolean;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const introStartRef = useRef<number | null>(null);
@@ -163,7 +207,7 @@ function ChairModel({
     const duration = 1.25;
     const t = Math.min(elapsed / duration, 1);
     const eased = 1 - Math.pow(1 - t, 3);
-    const autoAngle = (time * 0.22) % (Math.PI * 2);
+    const autoAngle = autoRotate ? (time * 0.22) % (Math.PI * 2) : 0;
 
     groupRef.current.position.x = responsive.offsetX;
     groupRef.current.position.y = THREE.MathUtils.lerp(responsive.yStart, responsive.yTarget, eased);
@@ -176,6 +220,10 @@ function ChairModel({
       eased
     );
     groupRef.current.scale.setScalar(scale);
+
+    if (!autoRotate && t >= 1) {
+      introStartRef.current = null;
+    }
   });
 
   return (
@@ -216,22 +264,56 @@ function ChairFallback({ overlay = false }: { overlay?: boolean }) {
   );
 }
 
+function ChairVideoHero() {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) return <ChairFallback />;
+
+  return (
+    <div className="h-full w-full rounded-3xl bg-foreground/[0.02] border border-foreground/10 overflow-hidden">
+      <video
+        className="h-full w-full object-contain p-4 sm:p-6 lg:p-8"
+        style={{ objectPosition: "68% center" }}
+        poster="/videos/hero-chair-poster.png"
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onError={() => setFailed(true)}
+      >
+        <source src="/videos/hero-chair-mobile.mp4" media="(max-width: 640px)" type="video/mp4" />
+        <source src="/videos/hero-chair-desktop.mp4" type="video/mp4" />
+      </video>
+    </div>
+  );
+}
+
 export function ChairHeroScene({ animateIn = true }: { animateIn?: boolean }) {
+  const profile = useMemo(() => getDevicePerformanceProfile(), []);
   const [canRender, setCanRender] = useState(false);
   const [modelFailed, setModelFailed] = useState(false);
   const [modelReady, setModelReady] = useState(false);
+  const useVideo = HERO_MEDIA_MODE === "video" || (HERO_MEDIA_MODE === "auto" && profile.preferVideo);
+  const useLowPower3d = profile.lowPower;
 
   useEffect(() => {
+    if (useVideo) return;
     setCanRender(supportsWebGL());
-  }, []);
+  }, [useVideo]);
 
   useEffect(() => {
+    if (useVideo) return;
     if (!canRender || modelReady || modelFailed) return;
     const timeoutId = window.setTimeout(() => {
       setModelFailed(true);
     }, 15000);
     return () => window.clearTimeout(timeoutId);
-  }, [canRender, modelReady, modelFailed]);
+  }, [useVideo, canRender, modelReady, modelFailed]);
+
+  if (useVideo) {
+    return <ChairVideoHero />;
+  }
 
   if (!canRender || modelFailed) {
     return <ChairFallback />;
@@ -242,8 +324,12 @@ export function ChairHeroScene({ animateIn = true }: { animateIn?: boolean }) {
       {!modelReady ? <ChairFallback overlay /> : null}
       <Canvas
         camera={{ fov: 45, position: [0, 1.55, 3.4], near: 0.1, far: 50 }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 1.75]}
+        gl={{
+          antialias: !useLowPower3d,
+          alpha: true,
+          powerPreference: useLowPower3d ? "low-power" : "high-performance",
+        }}
+        dpr={useLowPower3d ? [1, 1.2] : [1, 1.6]}
         style={{ width: "100%", height: "100%", background: "transparent", touchAction: "pan-y" }}
         onCreated={({ gl, camera }) => {
           gl.toneMappingExposure = 1.08;
@@ -294,7 +380,11 @@ export function ChairHeroScene({ animateIn = true }: { animateIn?: boolean }) {
             </Environment>
           )}
           <ModelBoundary onError={() => setModelFailed(true)}>
-            <ChairModel animateIn={animateIn} onReady={() => setModelReady(true)} />
+            <ChairModel
+              animateIn={animateIn}
+              onReady={() => setModelReady(true)}
+              autoRotate={!useLowPower3d}
+            />
           </ModelBoundary>
         </Suspense>
       </Canvas>
